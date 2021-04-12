@@ -8,6 +8,7 @@ import sklearn
 import xgboost
 #%%
 df = pd.read_csv('train_credit.csv')
+test_df = pd.read_csv('test_credit.csv')
 df.info()
 # %%
 x_columns = ['LIMIT_BAL', 'SEX', 'EDUCATION', 'MARRIAGE', 'AGE',
@@ -34,15 +35,6 @@ X_train, X_valid, y_train, y_valid = train_test_split(
     X, y, train_size=0.8, random_state=0
 )
 # %%
-# X.AGE.hist()
-X[['MARRIAGE', 'EDUCATION']].hist();
-X[['PAY_1']].hist();
-X[['PAY_2']].hist();
-X[['PAY_3']].hist();
-X[['PAY_4']].hist();
-X[['PAY_5']].hist();
-X[['PAY_6']].hist();
-# %%
 beta = 5000 / 1500
 scoring = {
     'fbeta': make_scorer(fbeta_score, beta=beta),
@@ -54,12 +46,16 @@ scoring = {
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV, cross_validate
 from sklearn.metrics import f1_score, accuracy_score, fbeta_score, make_scorer
-
 params = {
-    'n_estimators': [250],
-    'criterion': ['gini'],
-    'max_depth': [None],
-    'max_features': ['log2']
+    'n_estimators': [75, 100, 125],
+    'criterion': ['entropy'],
+    # 'criterion': ['gini', 'entropy'],
+    'min_samples_split': [ 50 + 5*x for x in range(0, 11)],
+    'min_samples_leaf': [25 + i*5 for i in range(-3, 4)],
+    # 'max_depth': [4, 8, 16],
+    'class_weight': ['balanced'],
+    # 'max_features': ['sqrt', 'log2']
+    'max_features': [6, 7, 8]
 }
 random_forest = RandomForestClassifier(random_state=1)
 gscv = GridSearchCV(
@@ -69,7 +65,7 @@ gscv = GridSearchCV(
     refit='mean_revenue',
     n_jobs=-1,
     cv=5,
-    verbose=2
+    verbose=1
 )
 gscv.fit(X, y)
 print(gscv.best_params_)
@@ -91,11 +87,10 @@ print('    accuracy', f"{scores['test_accuracy'].mean():.5f}", scores['test_accu
 import eli5
 from eli5.sklearn import PermutationImportance
 
-random_forest = RandomForestClassifier(random_state=1).fit(X_train, y_train)
+random_forest = RandomForestClassifier(random_state=17).fit(X_train, y_train)
 perm = PermutationImportance(random_forest, random_state=1).fit(X_valid, y_valid)
 eli5.show_weights(perm, feature_names = X_valid.columns.tolist())
 # %%
-test_df = pd.read_csv('test_credit.csv')
 test_X = test_df[x_columns].copy()
 test_X = prepare_X(test_X)
 
