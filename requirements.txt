@@ -7,3 +7,5 @@ xgboost
 tqdm
 ipykernel
 eli5
+autoreload
+lightgbm
