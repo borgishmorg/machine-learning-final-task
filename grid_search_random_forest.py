@@ -28,13 +28,14 @@ from sklearn.model_selection import train_test_split
 from prepare_x import prepare_X
 
 X = df[x_columns].copy()
-X = prepare_X(X)
+X = prepare_X(X, fit=True)
 
 y = df[y_column].copy()
 X_train, X_valid, y_train, y_valid = train_test_split(
     X, y, train_size=0.8, random_state=0
 )
 # %%
+from sklearn.metrics import f1_score, accuracy_score, fbeta_score, make_scorer
 beta = 5000 / 1500
 scoring = {
     'fbeta': make_scorer(fbeta_score, beta=beta),
@@ -45,17 +46,17 @@ scoring = {
 # %%
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV, cross_validate
-from sklearn.metrics import f1_score, accuracy_score, fbeta_score, make_scorer
+from datetime import datetime
+start_t = datetime.now()
 params = {
-    'n_estimators': [75, 100, 125],
-    'criterion': ['entropy'],
-    # 'criterion': ['gini', 'entropy'],
-    'min_samples_split': [ 50 + 5*x for x in range(0, 11)],
-    'min_samples_leaf': [25 + i*5 for i in range(-3, 4)],
-    # 'max_depth': [4, 8, 16],
-    'class_weight': ['balanced'],
-    # 'max_features': ['sqrt', 'log2']
-    'max_features': [6, 7, 8]
+    'n_estimators': [ 50*i for i in range(2, 6) ],
+    'criterion': ['gini', 'entropy'],
+    'min_samples_leaf': [10*i for i in range(1, 4)],
+    'min_samples_split': [ 10*x for x in range(7, 11)],
+    'class_weight': [ 'balanced' ],
+    'max_features': [6, 7, 8],
+    'max_samples': [ 0.3, 0.4, 0.5 ],
+    # 'max_depth': [2, 4, 8],
 }
 random_forest = RandomForestClassifier(random_state=1)
 gscv = GridSearchCV(
@@ -70,9 +71,19 @@ gscv = GridSearchCV(
 gscv.fit(X, y)
 print(gscv.best_params_)
 print(gscv.best_score_)
+print(datetime.now() - start_t)
 # %%
+best_params = {
+    'class_weight': 'balanced', 
+    'criterion': 'gini', 
+    'max_features': 6, 
+    'max_samples': 0.4, 
+    'min_samples_leaf': 20, 
+    'min_samples_split': 80, 
+    'n_estimators': 100
+}
 scores = cross_validate(
-    RandomForestClassifier(random_state=1, **gscv.best_params_),
+    RandomForestClassifier(random_state=1, **best_params),
     X,
     y,
     scoring=scoring,
@@ -84,16 +95,10 @@ print('          f1', f"{scores['test_f1'].mean():.5f}", scores['test_f1'].std()
 print('mean_revenue', f"{scores['test_mean_revenue'].mean():.5f}", scores['test_mean_revenue'].std())
 print('    accuracy', f"{scores['test_accuracy'].mean():.5f}", scores['test_accuracy'].std())
 # %%
-import eli5
-from eli5.sklearn import PermutationImportance
-
-random_forest = RandomForestClassifier(random_state=17).fit(X_train, y_train)
-perm = PermutationImportance(random_forest, random_state=1).fit(X_valid, y_valid)
-eli5.show_weights(perm, feature_names = X_valid.columns.tolist())
-# %%
 test_X = test_df[x_columns].copy()
 test_X = prepare_X(test_X)
 
-tree = RandomForestClassifier(random_state=1, **gscv.best_params_)
+tree = RandomForestClassifier(random_state=1, **best_params)
 tree.fit(X, y)
+result = (1 - tree.predict(test_X))
 print(*(1 - tree.predict(test_X)))

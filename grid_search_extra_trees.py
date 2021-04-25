@@ -96,4 +96,5 @@ test_X = prepare_X(test_X)
 
 tree = ExtraTreesClassifier(random_state=1, **gscv.best_params_)
 tree.fit(X, y)
+result = 1 - tree.predict(test_X)
 print(*(1 - tree.predict(test_X)))
